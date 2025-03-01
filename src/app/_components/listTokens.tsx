@@ -165,9 +165,7 @@ export const ListTokensDropdown = () => {
   };
 
   if (initialLoading)
-    return (
-      <div className="rounded-lg bg-gray-800 px-4 py-2">Loading tokens...</div>
-    );
+    return <div className="rounded-lg bg-gray-800 px-4 py-2">{"________"}</div>;
   if (error)
     return (
       <div className="rounded-lg bg-gray-800 px-4 py-2 text-red-400">

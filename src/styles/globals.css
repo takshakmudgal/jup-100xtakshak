@@ -2,10 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Custom scrollbar styling */
 ::-webkit-scrollbar {
     width: 6px;
-    /* Thin scrollbar */
     height: 6px;
 }
 
@@ -16,16 +14,13 @@
 
 ::-webkit-scrollbar-thumb {
     background: #aaaaaa;
-    /* Grey color */
     border-radius: 10px;
-    /* Curved/rounded scrollbar */
 }
 
 ::-webkit-scrollbar-thumb:hover {
     background: #888888;
 }
 
-/* For Firefox */
 * {
     scrollbar-width: thin;
     scrollbar-color: #aaaaaa transparent;
