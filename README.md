@@ -1,29 +1,131 @@
-# Create T3 App
+# Jupiter Payment Gateway
 
-This is a [T3 Stack](https://create.t3.gg/) project bootstrapped with `create-t3-app`.
+A crypto payment gateway built on Solana that uses Jupiter to automatically swap tokens to USDC for merchants. This project allows merchants to receive payments in USDC regardless of which token the payer uses.
 
-## What's next? How do I make an app with this?
+> **Note:** This project is currently configured to use Solana's devnet for testing and development purposes. The token swaps are simulated in devnet mode.
 
-We try to keep this project as simple as possible, so you can start with just the scaffolding we set up for you, and add additional things later when they become necessary.
+## Features
 
-If you are not familiar with the different technologies used in this project, please refer to the respective docs. If you still are in the wind, please join our [Discord](https://t3.gg/discord) and ask for help.
+- **Receive Payments**: Generate a QR code for your wallet address to receive payments
+- **Make Payments**: Pay with any token in your wallet, automatically swapped to USDC for the recipient
+- **Token Selection**: Choose from any token in your wallet to make payments
+- **Real-time Conversion**: See the exact amount of USDC the recipient will receive
+- **QR Code Scanning**: Scan recipient wallet addresses using your device camera
 
-- [Next.js](https://nextjs.org)
-- [NextAuth.js](https://next-auth.js.org)
-- [Prisma](https://prisma.io)
-- [Drizzle](https://orm.drizzle.team)
-- [Tailwind CSS](https://tailwindcss.com)
-- [tRPC](https://trpc.io)
+## Technology Stack
 
-## Learn More
+- **Frontend**: Next.js, React, TailwindCSS
+- **Blockchain**: Solana (Devnet), Jupiter Swap API
+- **Wallet Integration**: Solana Wallet Adapter
 
-To learn more about the [T3 Stack](https://create.t3.gg/), take a look at the following resources:
+## Getting Started
 
-- [Documentation](https://create.t3.gg/)
-- [Learn the T3 Stack](https://create.t3.gg/en/faq#what-learning-resources-are-currently-available) — Check out these awesome tutorials
+### Prerequisites
 
-You can check out the [create-t3-app GitHub repository](https://github.com/t3-oss/create-t3-app) — your feedback and contributions are welcome!
+- Node.js (v18 or higher)
+- pnpm (v8 or higher)
+- A Solana wallet (Phantom, Solflare, etc.) configured for devnet
 
-## How do I deploy this?
+### Installation
 
-Follow our deployment guides for [Vercel](https://create.t3.gg/en/deployment/vercel), [Netlify](https://create.t3.gg/en/deployment/netlify) and [Docker](https://create.t3.gg/en/deployment/docker) for more information.
+1. Clone the repository:
+
+   ```bash
+   git clone https://github.com/yourusername/jupiter-payment-gateway.git
+   cd jupiter-payment-gateway
+   ```
+
+2. Install dependencies:
+
+   ```bash
+   pnpm install
+   ```
+
+3. Create a `.env` file based on `.env.example` and add your RPC endpoint:
+
+   ```
+   NEXT_PUBLIC_RPC_ENDPOINT=https://api.devnet.solana.com
+   NEXT_PUBLIC_SOLANA_NETWORK=devnet
+   ```
+
+4. Start the development server:
+
+   ```bash
+   pnpm dev
+   ```
+
+5. Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+### Testing on Devnet
+
+1. Configure your Solana wallet to use devnet
+2. Request SOL tokens from the [Solana Faucet](https://faucet.solana.com/)
+3. Test the application with devnet tokens
+
+## How It Works
+
+### Making Payments
+
+1. Connect your Solana wallet
+2. Select the token you want to pay with
+3. Enter the recipient's Solana address
+4. Enter the amount to send
+5. The app automatically converts your token to USDC using Jupiter Swap
+6. The recipient receives USDC equivalent to the amount you sent
+
+### Real vs. Simulation Mode
+
+This application supports two modes:
+
+1. **Mainnet Mode (Production)** - Uses Jupiter's API to perform real swaps on Solana mainnet. Requires a Jupiter API key.
+2. **Devnet Mode (Testing)** - Simulates the swap and payment process using mock data on Solana devnet.
+
+### Configuration
+
+To switch between modes, update your `.env.local` file:
+
+```
+# For Mainnet (real transactions)
+NEXT_PUBLIC_USE_DEVNET=false
+NEXT_PUBLIC_SOLANA_NETWORK=mainnet-beta
+
+# For Devnet (simulated transactions)
+NEXT_PUBLIC_USE_DEVNET=true
+NEXT_PUBLIC_SOLANA_NETWORK=devnet
+```
+
+### Obtaining a Jupiter API Key
+
+For production use, you need a Jupiter API key:
+
+1. Go to [jup.ag](https://jup.ag)
+2. Create an account
+3. Navigate to the API section and generate an API key
+4. Add your API key to the `.env.local` file:
+
+```
+NEXT_PUBLIC_JUPITER_API_KEY=your_api_key_here
+```
+
+## Development vs Production
+
+- **Devnet Configuration**: Current setup uses Solana devnet with simulated swaps
+- **Mainnet Deployment**: To deploy to production, update environment variables to use mainnet RPC endpoints and implement proper Jupiter API integration with API keys
+
+## Architecture
+
+The application is built to work with Jupiter's Swap API for token swaps. When a payment is made:
+
+1. The payer selects a token and amount
+2. In mainnet mode, the application would get a quote from Jupiter for the swap
+3. In devnet mode, the swap is simulated for development purposes
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Acknowledgements
+
+- [Jupiter](https://jup.ag/) for their powerful swap engine
+- [Solana](https://solana.com/) for the blockchain infrastructure
+- [Next.js](https://nextjs.org/) for the frontend framework

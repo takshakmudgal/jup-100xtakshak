@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo } from "react";
-import { Adapter, UnifiedWalletProvider } from "@jup-ag/wallet-adapter";
+import type { Adapter } from "@jup-ag/wallet-adapter";
+import { UnifiedWalletProvider } from "@jup-ag/wallet-adapter";
 import { useWrappedReownAdapter } from "@jup-ag/jup-mobile-adapter";
 import {
   PhantomWalletAdapter,
@@ -9,6 +10,7 @@ import {
   CoinbaseWalletAdapter,
   TrustWalletAdapter,
 } from "@solana/wallet-adapter-wallets";
+import type { Cluster } from "@solana/web3.js";
 
 const APP_NAME = "100xtakshak";
 const APP_DESCRIPTION = "Your go-to-crypto payment gateway for merchants!";
@@ -17,6 +19,9 @@ const getOriginUrl = () =>
   typeof window !== "undefined" ? window.location.origin : "";
 
 export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
+  const network = (process.env.NEXT_PUBLIC_SOLANA_NETWORK ??
+    "devnet") as Cluster;
+
   const { reownAdapter, jupiterAdapter } = useWrappedReownAdapter({
     appKitOptions: {
       metadata: {
@@ -54,7 +59,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
       wallets={wallets}
       config={{
         autoConnect: true,
-        env: "mainnet-beta",
+        env: network,
         metadata: {
           name: APP_NAME,
           description: APP_DESCRIPTION,
