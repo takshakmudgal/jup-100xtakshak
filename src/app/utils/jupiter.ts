@@ -16,9 +16,7 @@ import {
 const isDev = process.env.NEXT_PUBLIC_USE_DEVNET === "true";
 
 export const USDC_MINT = new PublicKey(
-  isDev
-    ? "Gh9ZwEmdLJ8DscKNTkTqPbNwLNNBjuSzaG9Vp2KGtKJr"
-    : "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+  "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
 );
 
 export const SOL_MINT = new PublicKey(
@@ -51,15 +49,10 @@ export const getConnection = () => {
       : clusterApiUrl(cluster);
 
   const backupEndpoints = isDev
-    ? [
-        "https://api.devnet.solana.com",
-        "https://devnet.helius-rpc.com/?api-key=15319106-2ae4-4a6e-9d78-c41e7b5bad22",
-        "https://devnet.genesysgo.net",
-      ]
+    ? ["https://api.devnet.solana.com"]
     : [
         "https://solana-mainnet.rpc.extrnode.com",
         "https://api.mainnet-beta.solana.com",
-        "https://solana.getblock.io/mainnet/?api_key=221d90fb-345b-475b-9318-6097151b5152",
       ];
 
   cachedConnection = new Connection(rpcEndpoint, {
