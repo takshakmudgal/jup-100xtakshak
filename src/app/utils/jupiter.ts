@@ -1,17 +1,9 @@
-import { getAccount, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import {
   Connection,
   PublicKey,
   VersionedTransaction,
   clusterApiUrl,
-  SystemProgram,
-  Transaction,
 } from "@solana/web3.js";
-import {
-  createTransferInstruction,
-  getAssociatedTokenAddress,
-  createAssociatedTokenAccountInstruction,
-} from "@solana/spl-token";
 
 const isDev = process.env.NEXT_PUBLIC_USE_DEVNET === "true";
 
@@ -23,18 +15,12 @@ export const SOL_MINT = new PublicKey(
   "So11111111111111111111111111111111111111112",
 );
 
-let cachedSolPrice: number | null = null;
-let lastPriceFetchTime = 0;
-const PRICE_CACHE_DURATION = 5 * 60 * 1000;
-
 let cachedConnection: Connection | null = null;
-let requestCount = 0; // eslint-disable-line @typescript-eslint/no-unused-vars
 let lastRequestReset = Date.now();
 
 export const getConnection = () => {
   const now = Date.now();
   if (now - lastRequestReset > 60000) {
-    requestCount = 0;
     lastRequestReset = now;
   }
 
@@ -58,8 +44,6 @@ export const getConnection = () => {
   cachedConnection = new Connection(rpcEndpoint, {
     commitment: "confirmed",
     fetch: (url, init) => {
-      requestCount++;
-
       const headers = new Headers(init?.headers);
       headers.set("x-jupiter-payment-app", "payment-gateway");
 
@@ -107,70 +91,6 @@ export const getConnection = () => {
   return cachedConnection;
 };
 
-export const checkIfTokenAccountExists = async (
-  connection: Connection,
-  receiverTokenAccountAddress: PublicKey,
-): Promise<boolean> => {
-  try {
-    await getAccount(
-      connection,
-      receiverTokenAccountAddress,
-      "confirmed",
-      TOKEN_PROGRAM_ID,
-    );
-    return true;
-  } catch (error) {
-    if (
-      error &&
-      typeof error === "object" &&
-      "name" in error &&
-      error.name === "TokenAccountNotFoundError"
-    ) {
-      return false;
-    }
-    throw error;
-  }
-};
-
-export const getCurrentSolPrice = async (): Promise<number> => {
-  const now = Date.now();
-
-  if (
-    cachedSolPrice !== null &&
-    now - lastPriceFetchTime < PRICE_CACHE_DURATION
-  ) {
-    return cachedSolPrice;
-  }
-
-  try {
-    const response = await fetch(
-      "https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd",
-      { cache: "no-store" },
-    );
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch SOL price: ${response.status}`);
-    }
-
-    type CoinGeckoResponse = {
-      solana: {
-        usd: number;
-      };
-    };
-
-    const data = (await response.json()) as CoinGeckoResponse;
-    const price = data.solana.usd;
-
-    cachedSolPrice = price;
-    lastPriceFetchTime = now;
-
-    return price;
-  } catch (_err) {
-    // console.error("Error fetching SOL price:", _err);
-    return 178; // Default price if fetch fails
-  }
-};
-
 export interface TokenListItem {
   symbol: string;
   logoURI?: string;
@@ -181,91 +101,72 @@ export interface TokenListItem {
 }
 
 export const getSupportedTokens = async (): Promise<TokenListItem[]> => {
+  interface TokenListResponse {
+    tokens: Array<{
+      symbol: string;
+      logoURI?: string;
+      address: string;
+      name: string;
+      decimals: number;
+      tags?: string[];
+      [key: string]: unknown;
+    }>;
+  }
+
+  type Token = TokenListResponse["tokens"][number];
+
   try {
     if (!isDev) {
       const apiKey = process.env.NEXT_PUBLIC_JUPITER_API_KEY ?? "";
       const headers: HeadersInit = apiKey
         ? { Authorization: `Bearer ${apiKey}` }
         : {};
-
       const response = await fetch("https://quote-api.jup.ag/v6/tokens", {
         headers,
         cache: "no-store",
       });
-
-      if (!response.ok) {
+      if (!response.ok)
         throw new Error(`Failed to fetch Jupiter tokens: ${response.status}`);
-      }
-
-      const tokens = (await response.json()) as TokenListItem[];
-      return tokens;
-    } else {
-      const response = await fetch(
-        "https://cdn.jsdelivr.net/gh/solana-labs/token-list@main/src/tokens/solana.tokenlist.json",
-        { cache: "no-store" },
-      );
-
-      if (response.ok) {
-        interface TokenListResponse {
-          tokens: Array<{
-            symbol: string;
-            logoURI?: string;
-            address: string;
-            name: string;
-            decimals: number;
-            tags?: string[];
-            [key: string]: unknown;
-          }>;
-        }
-
-        const tokenList = (await response.json()) as TokenListResponse;
-
-        return [
-          {
-            address: SOL_MINT.toBase58(),
-            symbol: "SOL",
-            name: "Solana",
-            decimals: 9,
-            logoURI:
-              tokenList.tokens.find((t) => t.symbol === "SOL")?.logoURI ??
-              "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png",
-            tags: ["devnet"],
-          },
-          {
-            address: USDC_MINT.toBase58(),
-            symbol: "USDC",
-            name: "USD Coin (Devnet)",
-            decimals: 6,
-            logoURI:
-              tokenList.tokens.find((t) => t.symbol === "USDC")?.logoURI ??
-              "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/logo.png",
-            tags: ["devnet", "stablecoin"],
-          },
-        ];
-      } else {
-        console.error("Failed to fetch token list, using fallback");
-        return [
-          {
-            address: SOL_MINT.toBase58(),
-            symbol: "SOL",
-            name: "Solana",
-            decimals: 9,
-            logoURI:
-              "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png",
-            tags: ["devnet"],
-          },
-          {
-            address: USDC_MINT.toBase58(),
-            symbol: "USDC",
-            name: "USD Coin (Devnet)",
-            decimals: 6,
-            logoURI:
-              "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/logo.png",
-            tags: ["devnet", "stablecoin"],
-          },
-        ];
-      }
+      return (await response.json()) as TokenListItem[];
     }
+
+    const devResponse = await fetch(
+      "https://cdn.jsdelivr.net/gh/solana-labs/token-list@main/src/tokens/solana.tokenlist.json",
+      { cache: "no-store" },
+    );
+    const tokenList: TokenListResponse = devResponse.ok
+      ? ((await devResponse.json()) as TokenListResponse)
+      : { tokens: [] };
+
+    const fallbackSOL =
+      "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png";
+    const fallbackUSDC =
+      "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v/logo.png";
+
+    const tokens = tokenList.tokens || [];
+    const solLogo =
+      tokens.find((t: Token) => t.symbol === "SOL")?.logoURI ?? fallbackSOL;
+    const usdcLogo =
+      tokens.find((t: Token) => t.symbol === "USDC")?.logoURI ?? fallbackUSDC;
+
+    return [
+      {
+        address: SOL_MINT.toBase58(),
+        symbol: "SOL",
+        name: "Solana",
+        decimals: 9,
+        logoURI: solLogo,
+        tags: ["devnet"],
+      },
+      {
+        address: USDC_MINT.toBase58(),
+        symbol: "USDC",
+        name: "USD Coin (Devnet)",
+        decimals: 6,
+        logoURI: usdcLogo,
+        tags: ["devnet", "stablecoin"],
+      },
+    ];
   } catch (error) {
     console.error("Error fetching supported tokens:", error);
     return [];
@@ -334,118 +235,6 @@ export const getSwapQuote = async (
   }
 };
 
-export const buildDevnetTransaction = async ({
-  inputMint,
-  outputMint: _outputMint,
-  amount,
-  userPublicKey,
-  destinationAddress,
-}: {
-  inputMint: string;
-  outputMint: string;
-  amount: string;
-  userPublicKey: string;
-  destinationAddress: string;
-}): Promise<{
-  serializedTransaction: string;
-  error: string | null;
-}> => {
-  try {
-    const connection = getConnection();
-    const sender = new PublicKey(userPublicKey);
-    const recipient = new PublicKey(destinationAddress);
-    const isSOL = inputMint === SOL_MINT.toBase58();
-    const inputToken = new PublicKey(inputMint);
-
-    if (isSOL) {
-      const transaction = new Transaction().add(
-        SystemProgram.transfer({
-          fromPubkey: sender,
-          toPubkey: recipient,
-          lamports: BigInt(amount),
-        }),
-      );
-
-      const { blockhash } = await connection.getLatestBlockhash("confirmed");
-      transaction.recentBlockhash = blockhash;
-      transaction.feePayer = sender;
-
-      return {
-        serializedTransaction: Buffer.from(
-          transaction.serialize({
-            verifySignatures: false,
-            requireAllSignatures: false,
-          }),
-        ).toString("base64"),
-        error: null,
-      };
-    } else {
-      const senderTokenAccount = await getAssociatedTokenAddress(
-        inputToken,
-        sender,
-      );
-
-      const recipientTokenAccount = await getAssociatedTokenAddress(
-        inputToken,
-        recipient,
-      );
-
-      let createTokenAccountIx;
-      try {
-        await getAccount(
-          connection,
-          recipientTokenAccount,
-          "confirmed",
-          TOKEN_PROGRAM_ID,
-        );
-      } catch (_err) {
-        createTokenAccountIx = createAssociatedTokenAccountInstruction(
-          sender,
-          recipientTokenAccount,
-          recipient,
-          inputToken,
-        );
-      }
-
-      const transferIx = createTransferInstruction(
-        senderTokenAccount,
-        recipientTokenAccount,
-        sender,
-        BigInt(amount),
-      );
-
-      const transaction = new Transaction();
-      if (createTokenAccountIx) {
-        transaction.add(createTokenAccountIx);
-      }
-      transaction.add(transferIx);
-
-      const { blockhash } = await connection.getLatestBlockhash("confirmed");
-      transaction.recentBlockhash = blockhash;
-      transaction.feePayer = sender;
-
-      return {
-        serializedTransaction: Buffer.from(
-          transaction.serialize({
-            verifySignatures: false,
-            requireAllSignatures: false,
-          }),
-        ).toString("base64"),
-        error: null,
-      };
-    }
-  } catch (error: unknown) {
-    console.error("Error building devnet transaction:", error);
-    return {
-      serializedTransaction: "",
-      error:
-        error instanceof Error
-          ? error.message
-          : "Unknown error building devnet transaction",
-    };
-  }
-};
-
 interface BuildSwapTransactionParams {
   quoteResponse: SwapQuote;
   userPublicKey: string;
@@ -476,28 +265,13 @@ export const buildSwapTransaction = async ({
       ? { Authorization: `Bearer ${apiKey}` }
       : {};
 
-    // Extract values from the quote response
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const _inputMint = quoteResponse.inputMint;
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const _outputMint = quoteResponse.outputMint;
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const _inAmount = quoteResponse.inAmount;
-
-    // Compute a default amount threshold (0.5% slippage)
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const _threshold =
-      quoteResponse.outAmount !== undefined
-        ? Math.floor(Number(quoteResponse.outAmount) * 0.995).toString()
-        : "0";
-
     const body = {
       quoteResponse,
       userPublicKey,
       destinationTokenAccount,
-      prioritizationFeeLamports: 5000, // Prioritization fee to help ensure transaction completion
-      computeUnitPriceMicroLamports: 5000, // Compute unit price
-      slippageBps: 50, // 0.5% max slippage allowed
+      prioritizationFeeLamports: 5000,
+      computeUnitPriceMicroLamports: 5000,
+      slippageBps: 50,
       dynamicComputeUnitLimit: true,
       minimumOnlyParams: {
         slippageBps: 50,
